@@ -1,0 +1,8 @@
+{
+  "name": "Registro Excel",
+  "short_name": "Registro",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0073b1"
+}

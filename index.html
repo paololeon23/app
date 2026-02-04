@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Registro Profesional</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="status-bar">
+      <span id="network-status" class="online">● En línea</span>
+      <span id="pending-count">Pendientes: 0</span>
+    </div>
+    <h1>Registro</h1>
+    <form id="form">
+      <input type="text" id="nombre" placeholder="Nombre" required>
+      <input type="text" id="apellido" placeholder="Apellido" required>
+      <input type="number" id="edad" placeholder="Edad" required>
+      <button type="submit">Guardar Datos</button>
+    </form>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
