@@ -5,7 +5,7 @@ const STORAGE_KEY = "pendientes_seguros";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzZhcQ7taSMGIJUB2MuOO9TLt2Z2tmWHJ7qP_vA6PgLkX_h-d9cAnoXUs0V6HQ3dUajXQ/exec";
 
-// CANDADO: Evita que se disparen varias sincronizaciones a la vez
+// Candado lógico
 let isSyncing = false;
 
 function updateUI() {
@@ -24,12 +24,13 @@ function updateUI() {
 
 const saveLocal = d => {
   const current = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...current, d]));
+  // Agregamos un ID único para evitar que registros idénticos se confundan
+  const dataConId = { ...d, uid: Date.now() + Math.random() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...current, dataConId]));
   updateUI();
 };
 
 async function sendToCloud(d) {
-  // El modo no-cors es necesario para Google Apps Script
   await fetch(API_URL, {
     method: "POST",
     mode: "no-cors",
@@ -39,35 +40,50 @@ async function sendToCloud(d) {
 }
 
 async function sync() {
-  // Si ya se está sincronizando o no hay internet, salir
+  // 1. Verificación estricta del candado
   if (isSyncing || !navigator.onLine) return;
   
   const items = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  if (!items.length) return;
+  if (items.length === 0) return;
 
-  isSyncing = true; // ACTIVAR CANDADO
+  isSyncing = true; 
 
-  // Procesamos estrictamente UNO POR UNO
-  while (items.length > 0) {
-    const item = items[0]; // Tomar el primero de la fila
+  // 2. Usamos una copia local para el bucle
+  let queue = [...items];
+
+  while (queue.length > 0) {
+    const item = queue[0];
     try {
       await sendToCloud(item);
-      items.shift(); // Si se subió, eliminarlo de la memoria
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      
+      // 3. Eliminación inmediata del elemento procesado del STORAGE REAL
+      let currentItems = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      // Filtramos por el UID único que creamos
+      currentItems = currentItems.filter(i => i.uid !== item.uid);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentItems));
+      
+      // Actualizamos la cola del bucle
+      queue.shift();
       updateUI();
-      // Pequeña pausa de medio segundo para no saturar el Excel
-      await new Promise(res => setTimeout(res, 500)); 
+
+      // 4. Pausa de seguridad (aumentada a 1 segundo para el servidor de Google)
+      await new Promise(res => setTimeout(res, 1000)); 
     } catch (e) {
       console.error("Fallo en envío", e);
       break; 
     }
   }
 
-  isSyncing = false; // DESACTIVAR CANDADO
+  isSyncing = false; 
 }
 
 form.addEventListener("submit", async e => {
   e.preventDefault();
+
+  // 5. BLOQUEO FÍSICO DEL BOTÓN (Evita el doble clic del usuario)
+  const submitBtn = form.querySelector("button");
+  submitBtn.disabled = true;
+  submitBtn.style.opacity = "0.5";
 
   const data = {
     nombre: document.getElementById("nombre").value.trim(),
@@ -83,21 +99,25 @@ form.addEventListener("submit", async e => {
     Swal.fire({ 
       icon: 'success', 
       title: 'Registrado', 
-      text: 'Enviando...', 
+      text: 'Sincronizando...', 
       timer: 1500, 
-      showConfirmButton: false,
-      backdrop: `rgba(0,115,177,0.1)` 
+      showConfirmButton: false 
     });
     await sync();
   } else {
     Swal.fire({ 
       icon: 'info', 
-      title: 'Modo Offline', 
-      text: 'Guardado. Se subirá al detectar internet.' 
+      title: 'Guardado Local', 
+      text: 'Se subirá cuando detecte internet.' 
     });
   }
+
+  // Liberamos el botón
+  submitBtn.disabled = false;
+  submitBtn.style.opacity = "1";
 });
 
+// Usamos un pequeño retraso al cargar para no chocar con otros procesos
+window.addEventListener("load", () => setTimeout(updateUI, 500));
 window.addEventListener("online", updateUI);
 window.addEventListener("offline", updateUI);
-window.addEventListener("load", updateUI);
